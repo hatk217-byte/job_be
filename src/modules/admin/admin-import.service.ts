@@ -776,14 +776,14 @@ export class AdminImportService {
   async getStaticImportTemplateFile(): Promise<AdminExcelTemplateFile> {
     const candidates = [
       {
-        fileName: 'mau-import-tuyengiaovien.xlsm',
-        contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
-        hasMacro: true,
-      },
-      {
         fileName: 'mau-import-tuyengiaovien.xlsx',
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         hasMacro: false,
+      },
+      {
+        fileName: 'mau-import-tuyengiaovien.xlsm',
+        contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
+        hasMacro: true,
       },
     ];
 
