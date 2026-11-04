@@ -48,4 +48,4 @@ lerna-debug.log*
 
 # Temporary folders
 tmp/
-temp/ 
+temp/ *.bak

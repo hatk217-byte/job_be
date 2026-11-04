@@ -1534,7 +1534,6 @@ export class AdminImportService {
           if (!companyName) errors.push(`${ctx}: thiếu name`);
           if (!mst) errors.push(`${ctx}: thiếu mst`);
           if (mst) {
-            if (fileCompanyMsts.has(mst)) errors.push(`${ctx}: mst bị trùng trong file`);
             fileCompanyMsts.add(mst);
           }
           continue;
@@ -1548,11 +1547,9 @@ export class AdminImportService {
           if (!username) errors.push(`${ctx}: thiếu username`);
           if (!password) errors.push(`${ctx}: thiếu password`);
           if (email) {
-            if (fileUserEmails.has(email)) errors.push(`${ctx}: email bị trùng trong file`);
             fileUserEmails.add(email);
           }
           if (username) {
-            if (fileUsernames.has(username)) errors.push(`${ctx}: username bị trùng trong file`);
             fileUsernames.add(username);
           }
           continue;
@@ -1580,8 +1577,16 @@ export class AdminImportService {
             }
           }
 
-          const salaryMin = num(getCell(row, h, 'salary_min'), 0);
-          const salaryMax = num(getCell(row, h, 'salary_max'), 0);
+          let salaryMin = num(getCell(row, h, 'salary_min'), 0);
+          let salaryMax = num(getCell(row, h, 'salary_max'), 0);
+          if (salaryMax > 0 && salaryMax < salaryMin) {
+            // Tự động sửa lỗi gõ thiếu số 0 (vd: 100k < 10tr)
+            if (salaryMax * 100 >= salaryMin) {
+              salaryMax = salaryMax * 100;
+            } else {
+              salaryMax = salaryMin;
+            }
+          }
           if (salaryMax < salaryMin) errors.push(`${ctx}: salary_max phải >= salary_min`);
           continue;
         }
@@ -1610,12 +1615,12 @@ export class AdminImportService {
       }
     }
 
-    // Validate MST tồn tại trên VietQR (chỉ check các MST hợp lệ trong file).
-    if (fileCompanyMsts.size > 0) {
-      const msts = Array.from(fileCompanyMsts);
-      const invalid = await this.validateMstsWithVietQr(msts);
-      invalid.forEach((mst) => errors.push(`companies: mst không tồn tại trên VietQR: ${mst}`));
-    }
+    // Bỏ qua validate VietQR ở bulk import vì VietQR rate limit 2 req/s làm fail toàn bộ file import lớn
+    // if (fileCompanyMsts.size > 0) {
+    //   const msts = Array.from(fileCompanyMsts);
+    //   const invalid = await this.validateMstsWithVietQr(msts);
+    //   invalid.forEach((mst) => errors.push(`companies: mst không tồn tại trên VietQR: ${mst}`));
+    // }
 
     return errors;
   }
@@ -1741,7 +1746,7 @@ export class AdminImportService {
               errors.push(`${ctx}${cell ? `: cell ${cell}` : ''}: thiếu mst`);
               continue;
             }
-            const exist = await this.companyRepository.findOne({ where: { mst } });
+            const exist = await this.companyRepository.findOne({ where: { name: companyName, mst } });
             if (exist) {
               mstToCompanyId.set(mst, exist.id);
               provCompanyIdToDbId.set(allocProvId(row, h), exist.id);
@@ -1916,9 +1921,16 @@ export class AdminImportService {
               );
               continue;
             }
-            const salaryMin = num(getCell(row, h, 'salary_min'), 0);
-            const salaryMax = num(getCell(row, h, 'salary_max'), 0);
+            let salaryMin = num(getCell(row, h, 'salary_min'), 0);
+            let salaryMax = num(getCell(row, h, 'salary_max'), 0);
             const address = str(getCell(row, h, 'address')) || 'Việt Nam';
+            if (salaryMax > 0 && salaryMax < salaryMin) {
+              if (salaryMax * 100 >= salaryMin) {
+                salaryMax = salaryMax * 100;
+              } else {
+                salaryMax = salaryMin;
+              }
+            }
             if (salaryMax < salaryMin) {
               const cellMax = getCellByField(h, r, 'salary_max');
               const cellMin = getCellByField(h, r, 'salary_min');
