@@ -1591,13 +1591,8 @@ export class AdminImportService {
           continue;
         }
 
-        if (name === 'job_applications') {
-          const jobId = getResolvedNum(row, h, 'job_id');
-          const userId = getResolvedNum(row, h, 'user_id');
-          if (jobId == null) errors.push(`${ctx}: thiếu job_id`);
-          if (userId == null) errors.push(`${ctx}: thiếu user_id`);
-          continue;
-        }
+        // Bỏ qua validate sheet job_applications — không import sheet này
+        if (name === 'job_applications') continue;
 
         if (name === 'blogs') {
           const title = str(getCell(row, h, 'title'));
@@ -1719,7 +1714,7 @@ export class AdminImportService {
       'companies',
       'users',
       'jobs',
-      'job_applications',
+      // 'job_applications', // Bỏ qua — không import sheet này
       'blogs',
     ] as const) {
       const ws = wb.getWorksheet(name) ?? wb.getWorksheet(name.toUpperCase());
