@@ -1714,7 +1714,7 @@ export class AdminImportService {
       'companies',
       'users',
       'jobs',
-      // 'job_applications', // Bỏ qua — không import sheet này
+      'job_applications',
       'blogs',
     ] as const) {
       const ws = wb.getWorksheet(name) ?? wb.getWorksheet(name.toUpperCase());
@@ -2100,82 +2100,7 @@ export class AdminImportService {
           }
 
           if (name === 'job_applications') {
-            const applicantEmail = str(getCell(row, h, 'applicant_email'));
-            const jobTitle = str(getCell(row, h, 'job_title'));
-            const companyMst = str(getCell(row, h, 'company_mst'));
-            const excelJaJobId = getResolvedNum(row, h, 'job_id');
-            const excelJaUserId = getResolvedNum(row, h, 'user_id');
-            if (!excelJaJobId && (!applicantEmail || !jobTitle || !companyMst)) {
-              errors.push(`${ctx}: cần job_id + user_id, hoặc đủ applicant_email + job_title + company_mst`);
-              continue;
-            }
-            let userId = 0;
-            if (excelJaUserId != null) {
-              const resolvedUserId = await resolveImportFkId(
-                excelJaUserId,
-                provUserIdToDbId,
-                keepExistingData,
-                () => this.userRepository.findOne({ where: { id: excelJaUserId } }),
-              );
-              if (resolvedUserId) userId = resolvedUserId;
-            }
-            if (!userId && applicantEmail) {
-              userId = emailToUserId.get(applicantEmail) ?? 0;
-              if (!userId) {
-                const u = await this.userRepository.findOne({ where: { email: applicantEmail } });
-                if (u) {
-                  userId = u.id;
-                  emailToUserId.set(applicantEmail, u.id);
-                }
-              }
-            }
-            if (!userId) {
-              errors.push(`${ctx}: không tìm thấy user (user_id / applicant_email)`);
-              continue;
-            }
-            const key = `${companyMst}::${jobTitle}`;
-            let jobId = 0;
-            if (excelJaJobId != null) {
-              const resolvedJobId = await resolveImportFkId(
-                excelJaJobId,
-                provJobIdToDbId,
-                keepExistingData,
-                () => this.jobRepository.findOne({ where: { id: excelJaJobId } }),
-              );
-              if (resolvedJobId) jobId = resolvedJobId;
-            }
-            if (!jobId) jobId = jobKeyToId.get(key) ?? 0;
-            if (!jobId) {
-              const companyId =
-                mstToCompanyId.get(companyMst) ??
-                (await this.companyRepository.findOne({ where: { mst: companyMst } }))?.id;
-              if (!companyId) {
-                errors.push(`${ctx}: không tìm thấy công ty ${companyMst}`);
-                continue;
-              }
-              const jn = await this.jobRepository.findOne({
-                where: { companyId, title: jobTitle },
-                order: { id: 'DESC' },
-              });
-              if (jn) {
-                jobId = jn.id;
-                jobKeyToId.set(key, jn.id);
-              }
-            }
-            if (!jobId) {
-              errors.push(`${ctx}: không tìm thấy tin tuyển dụng "${jobTitle}" (${companyMst})`);
-              continue;
-            }
-            const ent = this.jobApplicationRepository.create({
-              jobId,
-              userId,
-              resumePath: str(getCell(row, h, 'resume_path')) || null,
-              coverLetterText: str(getCell(row, h, 'cover_letter_text')) || null,
-              coverLetterUrl: str(getCell(row, h, 'cover_letter_url')) || null,
-              delF: false,
-            } as JobApplication);
-            await this.jobApplicationRepository.save(ent);
-            summary.jobApplications += 1;
+            // Bỏ qua không import sheet job_applications
             continue;
           }
 
