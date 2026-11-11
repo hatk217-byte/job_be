@@ -1994,7 +1994,7 @@ export class AdminImportService {
             const status = st;
             let category: string;
             let location: string;
-            let typeOfEmployment: number;
+            let typeOfEmployment: string;
             let salaryType: number;
             let experienceLevel: number | null;
             let requiredQualification: string | null;
@@ -2019,13 +2019,14 @@ export class AdminImportService {
                 '1',
               );
               const toeRaw = str(getCell(row, h, 'type_of_employment')) || '1';
-              typeOfEmployment =
+              typeOfEmployment = String(
                 resolveSingleCode(
                   toeRaw,
                   TYPE_OF_EMPLOYMENT,
                   'type_of_employment',
                   0,
-                ) || 1;
+                ) || 1,
+              );
               const salTypeRaw = str(getCell(row, h, 'salary_type')) || '1';
               salaryType =
                 resolveSingleCode(salTypeRaw, SALARY_TYPE, 'salary_type', 0) || 1;

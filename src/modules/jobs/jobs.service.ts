@@ -283,12 +283,14 @@ export class JobsService {
       'l',
     );
 
-    // typeOfEmployment (array)
-    if (dto.typeOfEmployment?.length > 0) {
-      qb.andWhere('job.typeOfEmployment IN (:...toe)', {
-        toe: dto.typeOfEmployment,
-      });
-    }
+    // typeOfEmployment (array / comma-separated string)
+    JobsService.applyCommaSeparatedIdFilter(
+      qb,
+      'job.typeOfEmployment',
+      dto.typeOfEmployment,
+      0,
+      'toe',
+    );
 
     // experienceLevel (array)
     if (dto.experienceLevel?.length > 0) {
@@ -501,12 +503,14 @@ export class JobsService {
       'l',
     );
 
-    // typeOfEmployment (array)
-    if (dto.typeOfEmployment?.length > 0) {
-      qb.andWhere('job.typeOfEmployment IN (:...toe)', {
-        toe: dto.typeOfEmployment,
-      });
-    }
+    // typeOfEmployment (array / comma-separated string)
+    JobsService.applyCommaSeparatedIdFilter(
+      qb,
+      'job.typeOfEmployment',
+      dto.typeOfEmployment,
+      0,
+      'toe',
+    );
 
     // experienceLevel (array)
     if (dto.experienceLevel?.length > 0) {

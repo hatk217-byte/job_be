@@ -31,9 +31,9 @@ export class JobDetailDto {
   @IsString()
   location: string;
 
-  @ApiProperty({ description: 'Type of employment ID' })
-  @IsNumber()
-  typeOfEmployment: number;
+  @ApiProperty({ description: 'Type of employment' })
+  @IsString()
+  typeOfEmployment: string;
 
   @ApiProperty({ description: 'Experience level ID', required: false })
   @IsOptional()

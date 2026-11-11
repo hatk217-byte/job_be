@@ -57,9 +57,12 @@ export class PublicJobDto {
   location: string;
 
   @ApiProperty()
-  @IsNumber()
-  @Type(() => Number)
-  typeOfEmployment: number;
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(String).join(',');
+    return String(value ?? '').trim();
+  })
+  @IsNotEmpty()
+  typeOfEmployment: string;
 
   @ApiProperty()
   @IsNumber()

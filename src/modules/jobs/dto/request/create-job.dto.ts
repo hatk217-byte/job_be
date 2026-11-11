@@ -33,11 +33,13 @@ export class CreateJobDto {
   @IsString({ message: 'Địa điểm phải là chuỗi' })
   location: string;
 
-  @ApiProperty({ description: 'Type of employment', example: 1 })
-  @Transform(({ value }) => Number(value))
-  @IsNumber({}, { message: 'Hình thức làm việc phải là số' })
+  @ApiProperty({ description: 'Type of employment as comma-separated string (e.g., "1,2")', example: '1' })
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(String).join(',');
+    return String(value ?? '').trim();
+  })
   @IsNotEmpty({ message: 'Hình thức làm việc không được để trống' })
-  typeOfEmployment: number;
+  typeOfEmployment: string;
 
   @ApiProperty({ description: 'Experience level required', example: 1 })
   @Transform(({ value }) => (value !== null ? Number(value) : value))

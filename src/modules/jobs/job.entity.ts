@@ -33,9 +33,9 @@ export class Job {
   @Column()
   location: string;
 
-  @ApiProperty({ description: 'Type of employment' })
-  @Column()
-  typeOfEmployment: number;
+  @ApiProperty({ description: 'Type of employment as comma-separated string (e.g., "1,2")' })
+  @Column({ type: 'varchar', length: 255, default: '1' })
+  typeOfEmployment: string;
 
   @ApiProperty({ description: 'Experience level required' })
   @Column({ nullable: true })

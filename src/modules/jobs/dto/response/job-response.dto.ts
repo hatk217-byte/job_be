@@ -17,8 +17,8 @@ export class JobResponseDto {
   })
   location: string;
 
-  @ApiProperty({ description: 'Type of employment ID' })
-  typeOfEmployment: number;
+  @ApiProperty({ description: 'Type of employment' })
+  typeOfEmployment: string;
 
   @ApiProperty({ description: 'Experience level ID', required: false })
   experienceLevel: number | null;

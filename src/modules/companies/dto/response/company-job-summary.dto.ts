@@ -14,8 +14,8 @@ export class CompanyJobSummaryDto {
   })
   location: string;
 
-  @ApiProperty({ description: 'Type of employment ID' })
-  typeOfEmployment: number;
+  @ApiProperty({ description: 'Type of employment' })
+  typeOfEmployment: string;
 
   @ApiProperty({ description: 'Job image logo', nullable: true })
   imageLogo: string | null;
