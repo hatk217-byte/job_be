@@ -58,10 +58,10 @@ export class JobDetailDto {
   @IsString()
   gender: string | null;
 
-  @ApiProperty({ description: 'Grade requirement ID', nullable: true })
+  @ApiProperty({ description: 'Grade requirement', nullable: true })
   @IsOptional()
-  @IsNumber()
-  grade: number | null;
+  @IsString()
+  grade: string | null;
 
   @ApiProperty({ description: 'Company Id' })
   @IsNumber()
@@ -218,7 +218,7 @@ export class JobDetailDto {
     this.experienceLevel = job.experienceLevel ?? null;
     this.requiredQualification = job.requiredQualification || null;
     this.gender = job.gender || null;
-    this.grade = job.grade || null;
+    this.grade = job.grade ? String(job.grade) : null;
     this.companyId = job.companyId;
     this.companyName = job.company?.name || '';
     this.companyLogo = job.company?.logo || '';

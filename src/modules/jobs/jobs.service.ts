@@ -299,12 +299,14 @@ export class JobsService {
       });
     }
 
-    // grade (array)
-    if (dto.grade?.length > 0) {
-      qb.andWhere('job.grade IN (:...grade)', {
-        grade: dto.grade,
-      });
-    }
+    // grade (array / comma-separated string)
+    JobsService.applyCommaSeparatedIdFilter(
+      qb,
+      'job.grade',
+      dto.grade,
+      0,
+      'gr',
+    );
 
     // companyId
     if (dto.companyId !== undefined && dto.companyId !== null) {

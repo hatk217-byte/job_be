@@ -82,9 +82,12 @@ export class PublicJobDto {
   gender: string;
 
   @ApiProperty()
-  @IsNumber()
-  @Type(() => Number)
-  grade: number;
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(String).join(',');
+    return value !== null && value !== undefined ? String(value).trim() : value;
+  })
+  @IsNotEmpty()
+  grade: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

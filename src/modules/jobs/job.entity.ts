@@ -55,9 +55,9 @@ export class Job {
   @Column({ nullable: true })
   gender: string;
 
-  @ApiProperty({ description: 'Grade requirement' })
-  @Column({ nullable: true })
-  grade: number;
+  @ApiProperty({ description: 'Grade requirement as comma-separated string (e.g., "1,2")' })
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  grade: string;
 
   @ApiProperty({ description: 'User ID' })
   @Column({ nullable: true })

@@ -63,11 +63,13 @@ export class CreateJobDto {
   @IsNotEmpty({ message: 'Giới tính không được để trống' })
   gender: string;
 
-  @ApiProperty({ description: 'Grade requirement', example: 1 })
-  @Transform(({ value }) => (value !== null ? Number(value) : value))
-  @IsNumber({}, { message: 'Cấp bậc phải là số' })
+  @ApiProperty({ description: 'Grade requirement as comma-separated string (e.g., "1,2")', example: '1' })
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(String).join(',');
+    return value !== null && value !== undefined ? String(value).trim() : value;
+  })
   @IsNotEmpty({ message: 'Cấp bậc không được để trống' })
-  grade: number;
+  grade: string;
 
   @ApiProperty({ description: 'Company ID', required: true })
   @IsOptional()

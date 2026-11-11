@@ -1998,7 +1998,7 @@ export class AdminImportService {
             let salaryType: number;
             let experienceLevel: number | null;
             let requiredQualification: string | null;
-            let grade: number | null;
+            let grade: string | null;
             let gender: string;
             let benefits: string;
             try {
@@ -2039,7 +2039,7 @@ export class AdminImportService {
                 'required_qualification',
               );
               const gradeS = str(getCell(row, h, 'grade'));
-              grade = resolveOptionalInt(gradeS, GRADE, 'grade');
+              grade = resolveCommaCodes(gradeS, GRADE, 'grade') || null;
               const genRaw = str(getCell(row, h, 'gender')) || '1';
               gender = resolveCommaCodes(genRaw, GENDER_JOB, 'gender') || '1';
               benefits = mergeListFields(

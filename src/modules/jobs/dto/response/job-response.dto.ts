@@ -37,8 +37,8 @@ export class JobResponseDto {
   })
   gender?: string | null;
 
-  @ApiProperty({ description: 'Grade requirement ID', required: false })
-  grade?: number | null;
+  @ApiProperty({ description: 'Grade requirement', required: false })
+  grade?: string | null;
 
   @ApiProperty({ description: 'Company ID' })
   companyId: number;
@@ -136,7 +136,7 @@ export class JobResponseDto {
     this.experienceLevel = job.experienceLevel ?? null;
     this.requiredQualification = job.requiredQualification || null;
     this.gender = job.gender || null;
-    this.grade = job.grade || null;
+    this.grade = job.grade ? String(job.grade) : null;
     this.companyId = job.companyId;
     this.userId = job.userId;
     this.companyName = job.company?.name || '';
