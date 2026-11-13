@@ -92,10 +92,13 @@ export class CompaniesService {
     });
     const savedCompany = await this.companiesRepository.save(company);
 
-    if (companyImages && companyImages.length > 0) {
-      const images = companyImages.map((imageDto) => {
+    const validCompanyImages = (companyImages || []).filter(
+      (dto) => dto?.url && typeof dto.url === 'string' && dto.url.trim().length > 0,
+    );
+    if (validCompanyImages.length > 0) {
+      const images = validCompanyImages.map((imageDto) => {
         return this.companyImageRepository.create({
-          url: imageDto.url,
+          url: imageDto.url.trim(),
           company: savedCompany,
         });
       });
@@ -413,10 +416,13 @@ export class CompaniesService {
         await this.companyImageRepository.remove(company.companyImages);
       }
 
-      if (companyImages.length > 0) {
-        const newImages = companyImages.map((imageDto) => {
+      const validCompanyImages = (companyImages || []).filter(
+        (dto) => dto?.url && typeof dto.url === 'string' && dto.url.trim().length > 0,
+      );
+      if (validCompanyImages.length > 0) {
+        const newImages = validCompanyImages.map((imageDto) => {
           return this.companyImageRepository.create({
-            url: imageDto.url,
+            url: imageDto.url.trim(),
             company: updated,
           });
         });

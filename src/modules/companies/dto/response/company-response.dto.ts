@@ -144,10 +144,12 @@ export class CompanyResponseDto {
     this.openPositions = openPositions ?? 0;
 
     this.companyImages =
-      company.companyImages?.map((img) => ({
-        id: img.id,
-        url: img.url,
-      })) ?? [];
+      company.companyImages
+        ?.filter((img) => Boolean(img?.url && typeof img.url === 'string' && img.url.trim().length > 0))
+        .map((img) => ({
+          id: img.id,
+          url: img.url.trim(),
+        })) ?? [];
 
     this.creatorEmail = creator?.email ?? null;
     this.creatorPhone = creator?.phoneNumber ?? null;

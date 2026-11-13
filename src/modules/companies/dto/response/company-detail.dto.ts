@@ -105,9 +105,11 @@ export class CompanyDetailDto {
 
     this.jobs = jobs || [];
     this.companyImages =
-      company.companyImages?.map((img) => ({
-        id: img.id,
-        url: img.url,
-      })) ?? [];
+      company.companyImages
+        ?.filter((img) => Boolean(img?.url && typeof img.url === 'string' && img.url.trim().length > 0))
+        .map((img) => ({
+          id: img.id,
+          url: img.url.trim(),
+        })) ?? [];
   }
 }
