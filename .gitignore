@@ -49,3 +49,7 @@ lerna-debug.log*
 # Temporary folders
 tmp/
 temp/ *.bak
+
+# Local uploads
+uploads/
+/uploads

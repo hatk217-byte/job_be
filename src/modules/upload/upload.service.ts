@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -7,12 +7,18 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class UploadService {
-  private s3Client: S3Client;
+  private readonly logger = new Logger(UploadService.name);
+  private s3Client: S3Client | null = null;
   private bucketName: string;
   private publicUrl: string;
+  private isLocalStorage: boolean = false;
+  private uploadDir: string;
+  private localBaseUrl: string;
 
   constructor(private configService: ConfigService) {
     const accountId = this.configService.get<string>('R2_ACCOUNT_ID');
@@ -20,39 +26,82 @@ export class UploadService {
     const secretAccessKey = this.configService.get<string>(
       'R2_SECRET_ACCESS_KEY',
     );
-    this.bucketName = this.configService.get<string>('R2_BUCKET_NAME');
-    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL');
+    this.bucketName = this.configService.get<string>('R2_BUCKET_NAME') || '';
+    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL') || '';
 
-    if (!accountId || !accessKeyId || !secretAccessKey || !this.bucketName) {
-      throw new Error('Missing Cloudflare R2 configuration');
+    const port = this.configService.get<string>('PORT') || '8080';
+    this.uploadDir = path.join(process.cwd(), 'uploads');
+    this.localBaseUrl = `http://localhost:${port}/uploads`;
+
+    const isDummyR2 =
+      !accountId ||
+      accountId === 'dummy' ||
+      accountId.includes('your-account-id') ||
+      !accessKeyId ||
+      accessKeyId === 'dummy' ||
+      !secretAccessKey ||
+      secretAccessKey === 'dummy' ||
+      !this.bucketName ||
+      this.bucketName === 'dummy' ||
+      this.configService.get<string>('USE_LOCAL_STORAGE') === 'true';
+
+    if (isDummyR2) {
+      this.isLocalStorage = true;
+      this.logger.warn(
+        `Using LOCAL DISK STORAGE fallback (R2 dummy credentials detected). Uploads folder: ${this.uploadDir}`,
+      );
+      if (!fs.existsSync(this.uploadDir)) {
+        fs.mkdirSync(this.uploadDir, { recursive: true });
+      }
+    } else {
+      try {
+        this.s3Client = new S3Client({
+          region: 'auto',
+          endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+          credentials: {
+            accessKeyId,
+            secretAccessKey,
+          },
+        });
+        this.logger.log('Cloudflare R2 client initialized successfully');
+      } catch (err) {
+        this.logger.error(
+          'Failed to initialize R2 client, falling back to local storage',
+          err,
+        );
+        this.isLocalStorage = true;
+      }
     }
+  }
 
-    // Khởi tạo S3 Client cho Cloudflare R2
-    this.s3Client = new S3Client({
-      region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
+  private async saveFileLocally(
+    file: Express.Multer.File,
+    fileName: string,
+  ): Promise<string> {
+    const targetPath = path.join(this.uploadDir, fileName);
+    await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.promises.writeFile(targetPath, file.buffer);
+    this.logger.log(`File saved locally: ${targetPath}`);
+    return `${this.localBaseUrl}/${fileName}`;
   }
 
   /**
-   * Upload file lên Cloudflare R2
+   * Upload file lên Cloudflare R2 hoặc lưu local fallback
    * @param file File từ multer
    * @param folder Thư mục lưu trữ (cv, avatar, cover-letter, etc.)
    * @returns URL public của file
    */
   async uploadFile(file: Express.Multer.File, folder: string): Promise<string> {
-    try {
-      // Tạo tên file unique
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const fileExtension = file.originalname.split('.').pop();
-      const fileName = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
 
-      // Upload lên R2
+    if (this.isLocalStorage || !this.s3Client) {
+      return this.saveFileLocally(file, fileName);
+    }
+
+    try {
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: fileName,
@@ -62,18 +111,23 @@ export class UploadService {
 
       await this.s3Client.send(command);
 
-      // Trả về URL public
       const fileUrl = `${this.publicUrl}/${fileName}`;
       return fileUrl;
     } catch (error) {
-      console.error('Error uploading file to R2:', error);
+      this.logger.error('Error uploading file to R2:', error);
+      // In non-production, fallback to local storage
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.warn(
+          'R2 upload failed in dev mode, saving locally as fallback',
+        );
+        return this.saveFileLocally(file, fileName);
+      }
       throw new BadRequestException('Tải tệp lên thất bại');
     }
   }
 
   /**
-   * Xóa file từ Cloudflare R2
-   * @param fileUrl URL của file cần xóa
+   * Trích xuất key từ URL file (hỗ trợ cả R2 URL và local uploads URL)
    */
   private extractKeyFromFileUrl(fileUrl: string): string {
     if (!fileUrl) {
@@ -81,9 +135,21 @@ export class UploadService {
     }
 
     const sanitized = fileUrl.split('?')[0].split('#')[0];
-    const publicBase = this.publicUrl.replace(/\/$/, '');
 
-    if (sanitized.startsWith(`${publicBase}/`)) {
+    // Check if it's a local upload URL (/uploads/...)
+    if (sanitized.includes('/uploads/')) {
+      const parts = sanitized.split('/uploads/');
+      let key = parts[1] || '';
+      if (key.startsWith('/')) key = key.substring(1);
+      if (!key || key.includes('..')) {
+        throw new BadRequestException('Đường dẫn ảnh không hợp lệ');
+      }
+      return key;
+    }
+
+    const publicBase = this.publicUrl ? this.publicUrl.replace(/\/$/, '') : '';
+
+    if (publicBase && sanitized.startsWith(`${publicBase}/`)) {
       return sanitized.slice(publicBase.length + 1);
     }
 
@@ -112,11 +178,40 @@ export class UploadService {
   }
 
   /**
-   * Đọc ảnh từ R2 và trả về data URL (phục vụ crop ảnh trên FE, tránh CORS)
+   * Đọc ảnh từ disk (local) hoặc R2 và trả về data URL (phục vụ crop ảnh trên FE, tránh CORS)
    */
   async getImageDataUrl(fileUrl: string): Promise<{ dataUrl: string }> {
     const key = this.extractKeyFromFileUrl(fileUrl);
     this.assertAllowedImageKey(key);
+
+    // 1. Kiểm tra trên ổ đĩa cục bộ trước
+    const localFilePath = path.join(this.uploadDir, key);
+    if (fs.existsSync(localFilePath)) {
+      try {
+        const body = await fs.promises.readFile(localFilePath);
+        const ext = path.extname(localFilePath).toLowerCase().replace('.', '');
+        const mimeType =
+          ext === 'png'
+            ? 'image/png'
+            : ext === 'svg'
+            ? 'image/svg+xml'
+            : ext === 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+        const base64 = body.toString('base64');
+        return {
+          dataUrl: `data:${mimeType};base64,${base64}`,
+        };
+      } catch (err) {
+        this.logger.error('Error reading local image:', err);
+        throw new BadRequestException('Không tải được ảnh');
+      }
+    }
+
+    // 2. Nếu không có ở local và có s3Client, đọc từ R2
+    if (!this.s3Client) {
+      throw new BadRequestException('Không tìm thấy ảnh');
+    }
 
     try {
       const command = new GetObjectCommand({
@@ -140,7 +235,7 @@ export class UploadService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      console.error('Error reading image from R2:', error);
+      this.logger.error('Error reading image from R2:', error);
       throw new BadRequestException('Không tải được ảnh');
     }
   }
@@ -152,30 +247,35 @@ export class UploadService {
       const key = this.extractKeyFromFileUrl(fileUrl);
 
       if (!key) {
-        console.warn('Cannot extract key from URL:', fileUrl);
+        this.logger.warn(`Cannot extract key from URL: ${fileUrl}`);
         return;
       }
 
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
+      // Xóa file local nếu có
+      const localFilePath = path.join(this.uploadDir, key);
+      if (fs.existsSync(localFilePath)) {
+        await fs.promises.unlink(localFilePath).catch(() => {});
+        this.logger.log(`Deleted local file: ${localFilePath}`);
+        return;
+      }
 
-      await this.s3Client.send(command);
-      console.log('Deleted file from R2:', key);
+      // Xóa file R2 nếu có client
+      if (this.s3Client) {
+        const command = new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        });
+
+        await this.s3Client.send(command);
+        this.logger.log(`Deleted file from R2: ${key}`);
+      }
     } catch (error) {
-      console.error('Error deleting file from R2:', error);
-      // Không throw error vì có thể file đã bị xóa trước đó hoặc không tồn tại
+      this.logger.error('Error deleting file:', error);
     }
   }
 
   /**
    * Tạo presigned URL để upload trực tiếp từ client
-   * @param fileName Tên file
-   * @param folder Thư mục
-   * @param contentType Content type của file
-   * @param expiresIn Thời gian hết hạn (giây)
-   * @returns Presigned URL và key
    */
   async getPresignedUploadUrl(
     fileName: string,
@@ -183,14 +283,21 @@ export class UploadService {
     contentType: string,
     expiresIn: number = 3600,
   ): Promise<{ uploadUrl: string; fileUrl: string; key: string }> {
-    try {
-      // Tạo key unique
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const fileExtension = fileName.split('.').pop();
-      const key = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = fileName.split('.').pop();
+    const key = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
 
-      // Tạo presigned URL
+    if (this.isLocalStorage || !this.s3Client) {
+      const fileUrl = `${this.localBaseUrl}/${key}`;
+      return {
+        uploadUrl: fileUrl,
+        fileUrl,
+        key,
+      };
+    }
+
+    try {
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
@@ -209,7 +316,7 @@ export class UploadService {
         key,
       };
     } catch (error) {
-      console.error('Error generating presigned URL:', error);
+      this.logger.error('Error generating presigned URL:', error);
       throw new BadRequestException('Tạo URL tải lên thất bại');
     }
   }
@@ -241,47 +348,49 @@ export class UploadService {
    * Validate image file
    */
   validateImageFile(file: Express.Multer.File): void {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+    ];
 
-    const maxSize = 3 * 1024 * 1024; // 3MB
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        'Định dạng tệp không hợp lệ. Chỉ cho phép JPEG và PNG.',
+        'Định dạng tệp không hợp lệ. Chỉ cho phép JPEG, PNG và WebP.',
       );
     }
 
     if (file.size > maxSize) {
-      throw new BadRequestException('Kích thước tệp phải nhỏ hơn 3MB.');
+      throw new BadRequestException('Kích thước tệp phải nhỏ hơn 5MB.');
     }
   }
 
   /**
-   * Delete multiple files from R2 (batch operation)
-   * @param urls Array of file URLs to delete
+   * Delete multiple files from R2/local (batch operation)
    */
   async deleteBatch(urls: string[]): Promise<void> {
-    console.log(`Starting batch delete of ${urls.length} files`);
+    this.logger.log(`Starting batch delete of ${urls.length} files`);
 
     const deletePromises = urls.map(async (url) => {
       try {
         await this.deleteFile(url);
         return { url, success: true };
       } catch (error) {
-        console.error(`Failed to delete ${url}:`, error);
+        this.logger.error(`Failed to delete ${url}:`, error);
         return { url, success: false, error };
       }
     });
 
-    // Execute all deletes in parallel
     const results = await Promise.allSettled(deletePromises);
-
     const successCount = results.filter(
       (r) => r.status === 'fulfilled' && r.value.success,
     ).length;
     const failCount = results.length - successCount;
 
-    console.log(
+    this.logger.log(
       `Batch delete completed: ${successCount} succeeded, ${failCount} failed`,
     );
   }
