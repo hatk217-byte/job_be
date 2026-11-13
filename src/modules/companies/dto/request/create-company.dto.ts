@@ -21,8 +21,9 @@ export class CreateCompanyImageDto {
     description: 'Image URL',
     example: 'https://example.com/company-image.jpg',
   })
-  @IsUrl({}, { message: 'URL ảnh phải hợp lệ' })
+  @IsString({ message: 'URL ảnh phải là chuỗi' })
   @IsNotEmpty({ message: 'URL ảnh không được để trống' })
+  @Matches(/^(https?:\/\/.+|\/.+)$/i, { message: 'URL ảnh phải hợp lệ' })
   url: string;
 }
 
@@ -197,7 +198,8 @@ export class CreateCompanyDto {
   })
   @IsOptional()
   @ValidateIf((o, value) => value != null && value !== '')
-  @IsUrl({}, { message: 'Ảnh banner phải là URL hợp lệ' })
+  @IsString({ message: 'Ảnh banner phải là chuỗi' })
+  @Matches(/^(https?:\/\/.+|\/.+)$/i, { message: 'Ảnh banner phải là URL hợp lệ' })
   bannerImage?: string;
 
   @ApiPropertyOptional({
