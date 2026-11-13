@@ -58,10 +58,11 @@ export class CreateJobDto {
   @ApiProperty({
     description:
       'Gender requirements as comma-separated string (e.g., "1,2,3")',
+    required: false,
   })
   @IsString({ message: 'Giới tính phải là chuỗi' })
-  @IsNotEmpty({ message: 'Giới tính không được để trống' })
-  gender: string;
+  @IsOptional()
+  gender?: string;
 
   @ApiProperty({ description: 'Grade requirement as comma-separated string (e.g., "1,2")', example: '1' })
   @Transform(({ value }) => {

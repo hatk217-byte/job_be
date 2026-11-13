@@ -76,10 +76,10 @@ export class PublicJobDto {
   @IsString()
   requiredQualification: string;
 
-  @ApiProperty({ description: 'Comma-separated gender ids' })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'Comma-separated gender ids', required: false })
+  @IsOptional()
   @IsString()
-  gender: string;
+  gender?: string;
 
   @ApiProperty()
   @Transform(({ value }) => {
